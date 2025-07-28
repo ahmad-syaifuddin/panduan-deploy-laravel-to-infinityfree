@@ -203,10 +203,129 @@ Kemudian daftarkan di `laravel/composer.json`:
 
 Gunakan **FileZilla** untuk proses yang lebih andal daripada File Manager web.
 
+**⚠️ PENTING**: InfinityFree memiliki batasan upload **8MB per file**. Folder `vendor/` Laravel biasanya berisi ribuan file kecil, jadi harus di-upload secara bertahap.
+
+#### 📋 Strategi Upload Bertahap:
+
+**Step 1: Upload File Utama Dulu**
 1. **Isi `htdocs/`**: Upload `index.php` dan `.htaccess` (yang sudah diedit) dari folder `public/` lokalmu ke `htdocs/`.
 2. **Buat folder `laravel/`**: Di dalam `htdocs/`, buat folder baru bernama `laravel`.
-3. **Isi `htdocs/laravel/`**: Upload **semua sisa folder dan file Laravel** (termasuk `vendor/` dan `.env`) ke dalam folder `htdocs/laravel/`.
+3. **Upload folder kecil dulu**:
+   ```
+   htdocs/laravel/
+   ├── app/              ← Upload pertama
+   ├── bootstrap/        ← Upload kedua  
+   ├── config/           ← Upload ketiga
+   ├── database/         ← Upload keempat
+   ├── resources/        ← Upload kelima
+   ├── routes/           ← Upload keenam
+   ├── storage/          ← Upload ketujuh
+   ├── .env              ← Upload kedelapan
+   ├── artisan           ← Upload kesembilan
+   └── file lainnya...   ← Upload kesepuluh
+   ```
+
+**Step 2: Upload Folder `vendor/` dengan Teknik Khusus**
+
+Folder `vendor/` adalah yang paling tricky karena berisi ribuan file. Gunakan salah satu metode berikut:
+
+**🔥 Metode A: Upload Bertahap per Vendor Package**
+
+Di FileZilla, atur pengaturan ini dulu:
+- **Transfer Settings** → **Concurrent transfers**: 1
+- **Transfer Queue** → **Maximum number of transfers**: 1  
+- **Timeout**: 60 seconds
+
+Kemudian upload folder `vendor/` secara bertahap:
+
+```bash
+# Upload satu per satu folder di dalam vendor/
+vendor/
+├── symfony/          ← Upload pertama (yang paling besar)
+├── laravel/          ← Upload kedua  
+├── composer/         ← Upload ketiga
+├── psr/              ← Upload keempat
+├── monolog/          ← Upload kelima
+├── doctrine/         ← Upload keenam
+└── ... (lanjutkan bertahap)
+```
+
+**💡 Tips Upload Vendor:**
+- Upload folder terbesar (`symfony/`, `laravel/`) di waktu sepi (malam/dini hari)
+- Jika upload gagal di tengah jalan, resume dari folder yang belum terupload
+- Gunakan FileZilla **Queue** untuk mengatur antrian upload
+- Set **retry** otomatis: `Transfer Settings` → `Transfer interrupted` → `Ask for action`
+
+**🚀 Metode B: Kompresi Vendor (Lebih Efisien)**
+
+Jika upload bertahap masih sulit, gunakan teknik kompresi:
+
+1. **Di lokal**, buat archive kecil-kecil:
+   ```bash
+   # Split vendor menjadi beberapa bagian
+   cd vendor/
+   tar -czf ../vendor-part1.tar.gz symfony/ laravel/
+   tar -czf ../vendor-part2.tar.gz composer/ psr/ monolog/
+   tar -czf ../vendor-part3.tar.gz doctrine/ nesbot/ vlucas/
+   # ... lanjutkan sesuai kebutuhan
+   ```
+
+2. **Upload file .tar.gz** ke `htdocs/laravel/`
+
+3. **Extract via File Manager** di cPanel:
+   - Masuk ke **File Manager** di cPanel InfinityFree
+   - Navigate ke `htdocs/laravel/`
+   - Klik kanan file `.tar.gz` → **Extract**
+   - Ulangi untuk semua part
+   - Hapus file `.tar.gz` setelah extract
+
+**🛠️ Metode C: Rebuild Vendor di Server (Advanced)**
+
+Jika kedua metode di atas gagal:
+
+1. Upload hanya `composer.json` dan `composer.lock`
+2. Gunakan **Terminal** di cPanel (jika tersedia) untuk run:
+   ```bash
+   cd htdocs/laravel
+   composer install --no-dev --optimize-autoloader
+   ```
+
+   *Note: Metode ini jarang bisa dilakukan di InfinityFree karena akses terminal terbatas*
+
+**Step 3: Verifikasi Upload**
 4. **Set Permissions**: Pastikan folder `laravel/storage/` dan `laravel/bootstrap/cache/` memiliki permission 755 atau 775.
+5. **Check File Count**: Pastikan semua file terupload dengan benar, terutama di folder `vendor/`.
+
+#### 🔧 Pengaturan FileZilla untuk InfinityFree:
+
+Untuk menghindari timeout dan gagal upload, atur FileZilla seperti ini:
+
+```
+Edit → Settings → Transfers:
+✓ Concurrent transfers: 1
+✓ Maximum number of transfers: 1
+
+Edit → Settings → Connection:  
+✓ Timeout in seconds: 60
+✓ Keep alive: Send FTP keep alive commands
+✓ Retry and timeout: 3 retries, 5 seconds delay
+
+Edit → Settings → FTP:
+✓ Default transfer mode: Binary
+✓ Passive mode (recommended)
+```
+
+#### ⏱️ Timeline Upload yang Realistis:
+
+- **File Laravel dasar** (tanpa vendor): ~5-10 menit
+- **Folder vendor lengkap**: ~30-60 menit (tergantung koneksi)
+- **Total waktu upload**: 45-90 menit untuk project Laravel standar
+
+**💡 Pro Tips:**
+- Upload di jam sepi (00:00 - 06:00 WIB) untuk speed maksimal
+- Jangan browse internet atau streaming saat upload untuk bandwidth optimal  
+- Pause upload jika koneksi tidak stabil, resume nanti
+- Gunakan koneksi kabel LAN instead of WiFi untuk stability
 
 ---
 
@@ -246,7 +365,7 @@ BROADCAST_DRIVER=log
 MAIL_MAILER=log
 
 # Timezone
-APP_TIMEZONE=Asia/Makassar
+APP_TIMEZONE=Asia/Jakarta
 
 # Optional: Force HTTPS
 FORCE_HTTPS=false
@@ -371,6 +490,9 @@ Route::get('/test-db', function () {
 | **Database Connection Failed** | Periksa kredensial database di `.env` dan pastikan database sudah dibuat. |
 | **403 Forbidden** | Periksa permission folder dan file `.htaccess`. |
 | **Mixed Content Error** | Set `FORCE_HTTPS=true` jika menggunakan HTTPS. |
+| **Upload Gagal/Timeout** | Gunakan upload bertahap untuk folder `vendor/`. Set FileZilla ke mode 1 concurrent transfer. |
+| **Vendor Tidak Lengkap** | Cek apakah semua package di `vendor/` terupload. Gunakan metode kompresi jika perlu. |
+| **Class Not Found Error** | Jalankan `composer dump-autoload` di lokal, lalu upload ulang `vendor/autoload.php` dan folder `vendor/composer/`. |
 
 ---
 

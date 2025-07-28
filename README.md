@@ -30,7 +30,7 @@ htdocs/
     ├── resources/
     ├── routes/
     ├── storage/
-    ├── vendor/
+    ├── vendor/       ← Paling gede ukurannya [jadi agak ribet dikit tapi file folder ini penting banget :)]
     ├── artisan
     ├── .env
     └── ... (file lainnya)

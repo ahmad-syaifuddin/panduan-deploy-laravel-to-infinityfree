@@ -246,7 +246,7 @@ BROADCAST_DRIVER=log
 MAIL_MAILER=log
 
 # Timezone
-APP_TIMEZONE=Asia/Jakarta
+APP_TIMEZONE=Asia/Makassar
 
 # Optional: Force HTTPS
 FORCE_HTTPS=false

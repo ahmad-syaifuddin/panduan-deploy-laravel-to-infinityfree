@@ -1,4 +1,4 @@
-# 🛰️ Panduan Revisi: Deploy Laravel ke InfinityFree (Anti-Gagal)
+# 🛰️ Panduan: Deploy Laravel ke InfinityFree (Anti-Gagal)
 
 Panduan ini adalah versi yang disempurnakan untuk memastikan aplikasi Laravel kamu berjalan lancar di **InfinityFree** dengan metode yang paling stabil.
 

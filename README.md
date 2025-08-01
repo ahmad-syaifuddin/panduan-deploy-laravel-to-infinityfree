@@ -357,7 +357,7 @@ SESSION_ENCRYPT=false
 SESSION_PATH=/
 SESSION_DOMAIN=null
 
-CACHE_DRIVER=database
+CACHE_DRIVER=file
 QUEUE_CONNECTION=database
 
 # Disable Broadcasting & Mail untuk menghindari error

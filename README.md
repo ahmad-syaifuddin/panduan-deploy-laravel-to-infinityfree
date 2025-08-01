@@ -351,7 +351,7 @@ DB_USERNAME=epiz_xxxxxxxx
 DB_PASSWORD=password_database_kamu
 
 # Pengaturan Session & Cache (Penting untuk InfinityFree)
-SESSION_DRIVER=database
+SESSION_DRIVER=file
 SESSION_LIFETIME=120
 SESSION_ENCRYPT=false
 SESSION_PATH=/

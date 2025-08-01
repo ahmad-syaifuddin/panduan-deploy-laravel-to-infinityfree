@@ -480,7 +480,7 @@ Route::get('/test-db', function () {
 
 ---
 
-## ⚠️ Kendala Umum & Solusi
+# ⚠️ Kendala Umum & Solusi
 
 | Masalah | Solusi |
 |---------|--------|
@@ -496,6 +496,93 @@ Route::get('/test-db', function () {
 
 ---
 
+## ⚠️ Kendala Tambahan (Studi Kasus Real dari Deploy)
+
+Berikut ini adalah beberapa error nyata yang pernah dialami saat deploy Laravel ke InfinityFree, beserta solusinya:
+
+### ❌ 1. `Cannot resolve public path` saat generate PDF (`Pdf::loadView()`)
+**Penyebab:** Hosting InfinityFree tidak mengenali folder `public/` Laravel karena kita ubah struktur direktori.
+
+**Solusi:** Tambahkan di `AppServiceProvider.php` method `register()`:
+```php
+$this->app->bind('path.public', function () {
+    return base_path('../');
+});
+```
+
+**Tambahan:** Jika masih error meski sudah bind path, pastikan:
+- File `composer.json` **ada** di `htdocs/laravel/`
+- Semua file cache di `bootstrap/cache/` telah dihapus sebelum upload (`config.php`, `services.php`, dll)
+- Tidak ada error di view `pdf.blade.php`
+- Package `barryvdh/laravel-dompdf` sudah terupload lengkap di `vendor/`
+
+### ❌ 2. Error: `file_get_contents(...composer.json): Failed to open stream`
+**Penyebab:** File `composer.json` belum terupload ke hosting.
+
+**Solusi:** Upload file `composer.json` ke folder `htdocs/laravel/`.
+
+### ❌ 3. Error 500 saat `AppServiceProvider` mengubah `path.public`
+**Penyebab:** `useBasePath()` atau `bind('path.public')` dieksekusi terlalu dini sebelum Laravel selesai bootstrap.
+
+**Solusi:** Ubah urutan binding path hanya di `register()` dan pastikan `dd(public_path())` di-**comment** saat deploy.
+
+### ❌ 4. PDF Generator Error saat `Pdf::loadView()` dipanggil
+**Penyebab:** Versi `barryvdh/laravel-dompdf` error resolve asset saat path public tidak cocok.
+
+**Solusi alternatif (yang berhasil):**
+Ganti method controller `exportPdf()` dari:
+```php
+$pdf = Pdf::loadView('tabungan.pdf', compact(...));
+```
+menjadi pendekatan tanpa helper yang mengakses path:
+
+```php
+$view = view('tabungan.pdf', compact(...))->render();
+$pdf = Pdf::loadHtml($view);
+```
+
+### ❌ 5. TailwindCSS tidak ter-render
+**Penyebab:** Asset Tailwind (`app.css`) belum berhasil dipanggil karena helper `asset()` mengarah ke path Laravel asli.
+
+**Solusi:** Gunakan helper kustom `public_asset()`:
+
+```php
+function public_asset($path)
+{
+    return url('/') . '/' . ltrim($path, '/');
+}
+```
+
+Kemudian di Blade:
+```blade
+<link href="{{ public_asset('assets/css/app.css') }}" rel="stylesheet">
+```
+
+### ❌ 6. TailwindCSS Tidak Ter-render (Build Asset Modern)
+
+**Penyebab:** Hosting tidak mengenali path helper `asset()` karena struktur direktori Laravel dimodifikasi.
+
+**Solusi:** Jika kamu menggunakan Laravel + Vite (atau Tailwind CSS modern), pastikan file hasil `npm run build` sudah terupload ke `htdocs/build/` dan kamu memanggilnya seperti ini di Blade:
+
+```blade
+<link rel="stylesheet" href="{{ asset('build/assets/app-Bu5eBVKL.css') }}">
+<script src="{{ asset('build/assets/app-CLAht3ih.js') }}" defer></script>
+```
+
+**Catatan:** Nama file `.css` dan `.js` bisa berubah tergantung hash dari hasil build.
+
+
+---
+
+## 📌 Catatan Tambahan untuk Hosting Gratisan:
+
+- Jangan aktifkan `APP_DEBUG=true` terlalu lama (karena error log bisa terbuka ke publik)
+- Hindari package besar atau dynamic image generator jika gak benar-benar dibutuhkan
+- Gunakan caching manual (`config.php`) daripada artisan `config:cache`
+- Hindari sistem autentikasi ribet seperti Laravel Sanctum di InfinityFree
+
+---
+
 ## 📝 Tips Tambahan
 
 1. **Backup Selalu**: Selalu backup database dan file sebelum deploy.
@@ -505,6 +592,123 @@ Route::get('/test-db', function () {
 5. **Optimize Images**: Compress gambar sebelum upload untuk menghemat storage.
 
 ---
+
+
+---
+
+## 📂 Source Code Penting
+
+### 📁 `config/app.php`
+
+Tambahkan alias dan provider untuk `barryvdh/laravel-dompdf` agar bisa dipakai:
+
+```php
+'providers' => [
+
+    // Provider lainnya...
+    Barryvdh\DomPDF\ServiceProvider::class,
+
+],
+
+'aliases' => [
+
+    // Alias lainnya...
+    'Pdf' => Barryvdh\DomPDF\Facade\Pdf::class,
+
+],
+```
+
+---
+
+### 📁 `app/Providers/AppServiceProvider.php`
+
+Pastikan binding `path.public` dilakukan **hanya** di dalam method `register()`:
+
+```php
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register()
+    {
+        // Perbaiki path public untuk InfinityFree
+        \$this->app->bind('path.public', function () {
+            return base_path('../');
+        });
+    }
+
+    public function boot()
+    // {
+    //     // Opsional: Paksa HTTPS
+    //     if (env('FORCE_HTTPS', false)) {
+    //         \URL::forceScheme('https');
+    //     }
+    // }
+}
+```
+
+---
+
+### 📁 `app/Http/Controllers/NamaController.php`
+
+Contoh controller method untuk generate PDF **tanpa `loadView()`** (yang error di InfinityFree):
+
+```php
+use Barryvdh\DomPDF\Facade\Pdf;
+
+public function exportPdf(Request \$request)
+{
+    \$data = \$this->getFilteredQuery(\$request)->get();
+
+    \$totalPemasukan = \$data->where('kategoriJenis.jenis', 'Pemasukan')->sum('nominal');
+    \$totalPengeluaran = \$data->where('kategoriJenis.jenis', 'Pengeluaran')->sum('nominal');
+    \$saldoAkhir = \$totalPemasukan - \$totalPengeluaran;
+
+    \$filters = \$request->only(['tanggal_mulai', 'tanggal_selesai']);
+
+    // Render manual dulu untuk menghindari error path
+    \$view = view('tabungan.pdf', compact(
+        'data',
+        'totalPemasukan',
+        'totalPengeluaran',
+        'saldoAkhir',
+        'filters'
+    ))->render();
+
+    \$pdf = Pdf::loadHtml(\$view);
+
+    return \$pdf->download('laporan-tabungan-' . date('d-m-Y') . '.pdf');
+}
+```
+
+---
+
+### 📁 `app/helpers.php` (Custom Helper)
+
+Untuk mengatasi asset path yang error karena `asset()` Laravel gagal resolve:
+
+```php
+if (!function_exists('public_asset')) {
+    function public_asset(\$path)
+    {
+        return url('/') . '/' . ltrim(\$path, '/');
+    }
+}
+```
+
+Dan daftarkan di `composer.json`:
+
+```json
+"autoload": {
+    "files": [
+        "app/helpers.php"
+    ],
+    ...
+}
+```
+
+Lalu jalankan `composer dump-autoload` di lokal sebelum upload.
+
 
 ## 🚀 Selesai!
 

@@ -3,7 +3,7 @@
 > **Panduan lengkap untuk deploy aplikasi Laravel ke hosting gratis InfinityFree dengan metode yang telah terbukti stabil dan aman.**
 
 [![Laravel](https://img.shields.io/badge/Laravel-8%2B-red.svg)](https://laravel.com)
-[![InfinityFree](https://img.shields.io/badge/Hosting-InfinityFree-blue.svg)](https://infinityfree.net)
+[![InfinityFree](https://img.shields.io/badge/Hosting-InfinityFree-blue.svg)](https://www.infinityfree.com)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 
 ---

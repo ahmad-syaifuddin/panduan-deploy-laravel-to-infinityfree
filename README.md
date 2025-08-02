@@ -1,28 +1,49 @@
-# 🛰️ Panduan: Deploy Laravel ke InfinityFree (Anti-Gagal)
+# 🛰️ Panduan Deploy Laravel ke InfinityFree (Anti-Gagal)
 
-Panduan ini adalah versi yang disempurnakan untuk memastikan aplikasi Laravel kamu berjalan lancar di **InfinityFree** dengan metode yang paling stabil.
+> **Panduan lengkap untuk deploy aplikasi Laravel ke hosting gratis InfinityFree dengan metode yang telah terbukti stabil dan aman.**
+
+[![Laravel](https://img.shields.io/badge/Laravel-8%2B-red.svg)](https://laravel.com)
+[![InfinityFree](https://img.shields.io/badge/Hosting-InfinityFree-blue.svg)](https://infinityfree.net)
+[![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
+
+---
+
+## 📋 Daftar Isi
+
+- [Prasyarat](#-prasyarat)
+- [Struktur Direktori](#-struktur-direktori)
+- [Langkah Deploy](#-langkah-deploy)
+- [Troubleshooting](#-troubleshooting)
+- [Tips & Optimasi](#-tips--optimasi)
+- [FAQ](#-faq)
 
 ---
 
 ## 🧰 Prasyarat
 
-- Laravel versi 8, 9, atau 10.
-- Aplikasi sudah berjalan normal di lokal.
-- Akun InfinityFree aktif dengan domain/subdomain siap pakai.
-- FTP client (seperti FileZilla) atau akses File Manager.
+Pastikan kamu sudah memiliki:
+
+- ✅ **Laravel** versi 8, 9, atau 10
+- ✅ **Aplikasi** berjalan normal di lokal
+- ✅ **Akun InfinityFree** aktif dengan domain/subdomain
+- ✅ **FTP Client** (FileZilla) atau akses File Manager
+- ✅ **Composer** terinstall di lokal
 
 ---
 
 ## 📁 Struktur Direktori
 
-Struktur ini adalah yang terbaik untuk keamanan di *shared hosting*. Tujuannya agar hanya folder `public` yang bisa diakses dari luar.
+Struktur ini memastikan keamanan optimal di shared hosting dengan memisahkan file publik dan privat:
 
 ```
 htdocs/
-├── index.php         ← dari folder public/ (sudah diedit)
-├── .htaccess         ← dari folder public/ (sudah diedit)
-├── assets/           ← (Opsional) Folder untuk CSS/JS/Gambar
-└── laravel/          ← Semua sisa file & folder Laravel
+├── index.php         ← Entry point (dari public/)
+├── .htaccess         ← URL rewriting rules
+├── assets/           ← Isi dari folder public/ Laravel (css, js, images)
+│   ├── css/
+│   ├── js/
+│   └── images/
+└── laravel/          ← Core Laravel application
     ├── app/
     ├── bootstrap/
     ├── config/
@@ -30,21 +51,20 @@ htdocs/
     ├── resources/
     ├── routes/
     ├── storage/
-    ├── vendor/       ← Paling gede ukurannya [jadi agak ribet dikit tapi file folder ini penting banget :)]
+    ├── vendor/       ← Dependencies (file terbesar)
     ├── artisan
     ├── .env
-    └── ... (file lainnya)
+    └── composer.json
 ```
 
 ---
 
-## 🔧 Langkah-langkah Deploy
+## 🚀 Langkah Deploy
 
-### 1. ✅ Siapkan di Lokal
-
-Di terminal lokal kamu, jalankan perintah ini untuk optimasi:
+### 1. Persiapan Lokal
 
 ```bash
+# Optimasi aplikasi untuk production
 composer install --no-dev --optimize-autoloader
 php artisan config:clear
 php artisan route:clear
@@ -52,19 +72,11 @@ php artisan view:clear
 php artisan key:generate --show
 ```
 
-**Penting:**
-- Gunakan `config:clear`, `route:clear`, dan `view:clear` (bukan `cache`). *Caching* konfigurasi kadang menyebabkan masalah path di InfinityFree.
-- Salin `APP_KEY` yang muncul dari perintah `key:generate --show` untuk dimasukkan ke file `.env` nanti.
+> **⚠️ Penting:** Simpan `APP_KEY` yang dihasilkan untuk file `.env` hosting.
 
----
+### 2. Konfigurasi File Entry Point
 
-### 2. 🛠️ (REVISI) Edit `index.php` dan Path Configuration
-
-Ini adalah langkah paling krusial yang sering gagal.
-
-**a. Edit `htdocs/index.php` (sebelumnya `public/index.php`)**
-
-Ubah path agar menunjuk ke folder `laravel/`:
+#### Edit `index.php` (dari `public/index.php`)
 
 ```php
 <?php
@@ -74,45 +86,15 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
-/*
-|--------------------------------------------------------------------------
-| Check If The Application Is Under Maintenance
-|--------------------------------------------------------------------------
-|
-| If the application is in maintenance / demo mode via the "down" command
-| we will load this file so that any pre-rendered content can be shown
-| instead of starting the framework, which could cause an exception.
-|
-*/
-
+// Maintenance mode check
 if (file_exists($maintenance = __DIR__.'/laravel/storage/framework/maintenance.php')) {
     require $maintenance;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Register The Auto Loader
-|--------------------------------------------------------------------------
-|
-| Composer provides a convenient, automatically generated class loader for
-| this application. We just need to utilize it! We'll simply require it
-| into the script here so we don't need to manually load our classes.
-|
-*/
-
+// Autoloader
 require __DIR__.'/laravel/vendor/autoload.php';
 
-/*
-|--------------------------------------------------------------------------
-| Run The Application
-|--------------------------------------------------------------------------
-|
-| Once we have the application, we can handle the incoming request using
-| the application's HTTP kernel. Then, we will send the response back
-| to this client's browser, allowing them to enjoy our application.
-|
-*/
-
+// Bootstrap application
 $app = require_once __DIR__.'/laravel/bootstrap/app.php';
 
 $kernel = $app->make(Kernel::class);
@@ -124,9 +106,7 @@ $response = $kernel->handle(
 $kernel->terminate($request, $response);
 ```
 
-**b. Edit `laravel/app/Providers/AppServiceProvider.php`**
-
-Beberapa fitur seperti *asset linking* mungkin error. Atasi dengan menambahkan kode berikut di dalam method `register()` untuk memperbaiki path `public`.
+#### Edit `AppServiceProvider.php`
 
 ```php
 <?php
@@ -137,27 +117,17 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     *
-     * @return void
-     */
     public function register()
     {
-        // Perbaiki path public untuk InfinityFree
+        // Fix public path untuk InfinityFree
         $this->app->bind('path.public', function() {
             return base_path('../');
         });
     }
 
-    /**
-     * Bootstrap any application services.
-     *
-     * @return void
-     */
     public function boot()
     {
-        // Paksa HTTPS jika diperlukan (opsional)
+        // Force HTTPS jika diperlukan
         if (env('FORCE_HTTPS', false)) {
             \URL::forceScheme('https');
         }
@@ -165,9 +135,11 @@ class AppServiceProvider extends ServiceProvider
 }
 ```
 
-**c. Buat Custom Helper untuk Asset (Opsional tapi Disarankan)**
+#### Buat Custom Asset Helper
 
-Buat file `laravel/app/helpers.php`:
+Karena folder `public/` Laravel dipindah ke `htdocs/assets/`, kita perlu helper untuk path yang benar.
+
+Buat file `app/helpers.php`:
 
 ```php
 <?php
@@ -175,12 +147,13 @@ Buat file `laravel/app/helpers.php`:
 if (!function_exists('public_asset')) {
     function public_asset($path)
     {
-        return url('/') . '/' . ltrim($path, '/');
+        // Untuk akses file di htdocs/assets/
+        return url('/assets') . '/' . ltrim($path, '/');
     }
 }
 ```
 
-Kemudian daftarkan di `laravel/composer.json`:
+Daftarkan di `composer.json`:
 
 ```json
 {
@@ -189,195 +162,111 @@ Kemudian daftarkan di `laravel/composer.json`:
             "app/helpers.php"
         ],
         "psr-4": {
-            "App\\": "app/",
-            "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/"
+            "App\\": "app/"
         }
     }
 }
 ```
 
----
+### 3. Upload ke Hosting
 
-### 3. 📂 Upload File ke Hosting
+> **⚠️ Batasan:** InfinityFree memiliki limit upload 8MB per file. Folder `vendor/` harus diupload bertahap.
 
-Gunakan **FileZilla** untuk proses yang lebih andal daripada File Manager web.
-
-**⚠️ PENTING**: InfinityFree memiliki batasan upload **8MB per file**. Folder `vendor/` Laravel biasanya berisi ribuan file kecil, jadi harus di-upload secara bertahap.
-
-#### 📋 Strategi Upload Bertahap:
+#### Strategi Upload Bertahap
 
 **Step 1: Upload File Utama Dulu**
-1. **Isi `htdocs/`**: Upload `index.php` dan `.htaccess` (yang sudah diedit) dari folder `public/` lokalmu ke `htdocs/`.
-2. **Buat folder `laravel/`**: Di dalam `htdocs/`, buat folder baru bernama `laravel`.
-3. **Upload folder kecil dulu**:
-   ```
-   htdocs/laravel/
-   ├── app/              ← Upload pertama
-   ├── bootstrap/        ← Upload kedua  
-   ├── config/           ← Upload ketiga
-   ├── database/         ← Upload keempat
-   ├── resources/        ← Upload kelima
-   ├── routes/           ← Upload keenam
-   ├── storage/          ← Upload ketujuh
-   ├── .env              ← Upload kedelapan
-   ├── artisan           ← Upload kesembilan
-   └── file lainnya...   ← Upload kesepuluh
-   ```
 
-**Step 2: Upload Folder `vendor/` dengan Teknik Khusus**
+1. **Isi `htdocs/`:** Upload `index.php` dan `.htaccess` (yang sudah diedit) dari folder `public/` lokalmu ke `htdocs/`
+2. **Upload assets:** Pindahkan isi folder `public/` (css, js, images) ke folder `assets/` di `htdocs/`
+3. **Buat folder `laravel/`:** Di dalam `htdocs/`, buat folder baru bernama `laravel`
+4. **Upload folder Laravel:**
 
-Folder `vendor/` adalah yang paling tricky karena berisi ribuan file. Gunakan salah satu metode berikut:
+```
+htdocs/laravel/
+├── app/              ← Upload pertama
+├── bootstrap/        ← Upload kedua  
+├── config/           ← Upload ketiga
+├── database/         ← Upload keempat
+├── resources/        ← Upload kelima
+├── routes/           ← Upload keenam
+├── storage/          ← Upload ketujuh
+├── .env              ← Upload kedelapan
+├── artisan           ← Upload kesembilan
+├── composer.json     ← Upload kesepuluh
+└── file lainnya...   ← Upload kesebelas
+```
 
-**🔥 Metode A: Upload Bertahap per Vendor Package**
+**Step 2: Upload Vendor (Pilih Metode)**
 
-Di FileZilla, atur pengaturan ini dulu:
-- **Transfer Settings** → **Concurrent transfers**: 1
-- **Transfer Queue** → **Maximum number of transfers**: 1  
-- **Timeout**: 60 seconds
-
-Kemudian upload folder `vendor/` secara bertahap:
-
+##### 🔥 Metode A: Upload Bertahap
 ```bash
-# Upload satu per satu folder di dalam vendor/
+# Upload satu per satu folder vendor/
 vendor/
-├── symfony/          ← Upload pertama (yang paling besar)
-├── laravel/          ← Upload kedua  
-├── composer/         ← Upload ketiga
-├── psr/              ← Upload keempat
-├── monolog/          ← Upload kelima
-├── doctrine/         ← Upload keenam
-└── ... (lanjutkan bertahap)
+├── symfony/     ← Upload pertama (terbesar)
+├── laravel/     ← Upload kedua
+├── composer/    ← Upload ketiga
+└── ...          ← Lanjutkan bertahap
 ```
 
-**💡 Tips Upload Vendor:**
-- Upload folder terbesar (`symfony/`, `laravel/`) di waktu sepi (malam/dini hari)
-- Jika upload gagal di tengah jalan, resume dari folder yang belum terupload
-- Gunakan FileZilla **Queue** untuk mengatur antrian upload
-- Set **retry** otomatis: `Transfer Settings` → `Transfer interrupted` → `Ask for action`
+##### 💡 Metode B: Kompresi
+```bash
+# Di lokal, split vendor menjadi bagian kecil
+cd vendor/
+tar -czf ../vendor-part1.tar.gz symfony/ laravel/
+tar -czf ../vendor-part2.tar.gz composer/ psr/ monolog/
+```
 
-**🚀 Metode B: Kompresi Vendor (Lebih Efisien)**
+Upload file `.tar.gz` lalu extract via File Manager cPanel.
 
-Jika upload bertahap masih sulit, gunakan teknik kompresi:
-
-1. **Di lokal**, buat archive kecil-kecil:
-   ```bash
-   # Split vendor menjadi beberapa bagian
-   cd vendor/
-   tar -czf ../vendor-part1.tar.gz symfony/ laravel/
-   tar -czf ../vendor-part2.tar.gz composer/ psr/ monolog/
-   tar -czf ../vendor-part3.tar.gz doctrine/ nesbot/ vlucas/
-   # ... lanjutkan sesuai kebutuhan
-   ```
-
-2. **Upload file .tar.gz** ke `htdocs/laravel/`
-
-3. **Extract via File Manager** di cPanel:
-   - Masuk ke **File Manager** di cPanel InfinityFree
-   - Navigate ke `htdocs/laravel/`
-   - Klik kanan file `.tar.gz` → **Extract**
-   - Ulangi untuk semua part
-   - Hapus file `.tar.gz` setelah extract
-
-**🛠️ Metode C: Rebuild Vendor di Server (Advanced)**
-
-Jika kedua metode di atas gagal:
-
-1. Upload hanya `composer.json` dan `composer.lock`
-2. Gunakan **Terminal** di cPanel (jika tersedia) untuk run:
-   ```bash
-   cd htdocs/laravel
-   composer install --no-dev --optimize-autoloader
-   ```
-
-   *Note: Metode ini jarang bisa dilakukan di InfinityFree karena akses terminal terbatas*
-
-**Step 3: Verifikasi Upload**
-4. **Set Permissions**: Pastikan folder `laravel/storage/` dan `laravel/bootstrap/cache/` memiliki permission 755 atau 775.
-5. **Check File Count**: Pastikan semua file terupload dengan benar, terutama di folder `vendor/`.
-
-#### 🔧 Pengaturan FileZilla untuk InfinityFree:
-
-Untuk menghindari timeout dan gagal upload, atur FileZilla seperti ini:
+#### ⚙️ Pengaturan FileZilla
 
 ```
-Edit → Settings → Transfers:
+Transfer Settings:
 ✓ Concurrent transfers: 1
-✓ Maximum number of transfers: 1
-
-Edit → Settings → Connection:  
-✓ Timeout in seconds: 60
-✓ Keep alive: Send FTP keep alive commands
-✓ Retry and timeout: 3 retries, 5 seconds delay
-
-Edit → Settings → FTP:
-✓ Default transfer mode: Binary
-✓ Passive mode (recommended)
+✓ Maximum transfers: 1
+✓ Timeout: 60 seconds
+✓ Passive mode: enabled
+✓ Transfer mode: Binary
 ```
 
-#### ⏱️ Timeline Upload yang Realistis:
+### 4. Konfigurasi Environment
 
-- **File Laravel dasar** (tanpa vendor): ~5-10 menit
-- **Folder vendor lengkap**: ~30-60 menit (tergantung koneksi)
-- **Total waktu upload**: 45-90 menit untuk project Laravel standar
-
-**💡 Pro Tips:**
-- Upload di jam sepi (00:00 - 06:00 WIB) untuk speed maksimal
-- Jangan browse internet atau streaming saat upload untuk bandwidth optimal  
-- Pause upload jika koneksi tidak stabil, resume nanti
-- Gunakan koneksi kabel LAN instead of WiFi untuk stability
-
----
-
-### 4. 🔑 (REVISI) Sesuaikan File `.env`
-
-Edit file `.env` di `htdocs/laravel/` dengan kredensial dari InfinityFree.
+Edit `.env` di `htdocs/laravel/`:
 
 ```env
-APP_NAME="Nama Aplikasi Kamu"
+APP_NAME="Your App Name"
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=http://domainkamu.epizy.com
+APP_URL=http://yourdomain.page.gd
+APP_KEY=base64:your_generated_key_here
 
-# Kunci Aplikasi dari langkah 1
-APP_KEY=base64:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=
-
-# Kredensial Database dari Control Panel InfinityFree
+# Database credentials dari InfinityFree
 DB_CONNECTION=mysql
-DB_HOST=sqlXXX.epizy.com
+DB_HOST=sqlXXX.page.gd
 DB_PORT=3306
-DB_DATABASE=epiz_xxxxxxxx_namadatabase
+DB_DATABASE=epiz_xxxxxxxx_dbname
 DB_USERNAME=epiz_xxxxxxxx
-DB_PASSWORD=password_database_kamu
+DB_PASSWORD=your_db_password
 
-# Pengaturan Session & Cache (Penting untuk InfinityFree)
+# Session & Cache
 SESSION_DRIVER=file
-SESSION_LIFETIME=120
-SESSION_ENCRYPT=false
-SESSION_PATH=/
-SESSION_DOMAIN=null
-
 CACHE_DRIVER=file
 QUEUE_CONNECTION=database
 
-# Disable Broadcasting & Mail untuk menghindari error
+# Disable untuk hosting gratis
 BROADCAST_DRIVER=log
 MAIL_MAILER=log
 
 # Timezone
 APP_TIMEZONE=Asia/Makassar
 
-# Optional: Force HTTPS
+# Optional
 FORCE_HTTPS=false
 ```
 
-**Penting:** Menggunakan `database` sebagai `SESSION_DRIVER` dan `CACHE_DRIVER` lebih disarankan karena seringkali izin tulis ke folder `storage` di hosting gratis tidak stabil.
+### 5. Setup .htaccess
 
----
-
-### 5. 🧷 (REVISI) Edit File `.htaccess` di `htdocs/`
-
-File `.htaccess` di root `htdocs/` sangat penting untuk mengarahkan semua permintaan ke `index.php`. Ganti seluruh isinya dengan kode di bawah agar lebih stabil dan aman.
+File `.htaccess` di `htdocs/`:
 
 ```apache
 <IfModule mod_rewrite.c>
@@ -391,12 +280,12 @@ File `.htaccess` di root `htdocs/` sangat penting untuk mengarahkan semua permin
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Redirect Trailing Slashes If Not A Folder...
+    # Redirect Trailing Slashes
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
-    # Send Requests To Front Controller...
+    # Front Controller
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
@@ -412,304 +301,453 @@ File `.htaccess` di root `htdocs/` sangat penting untuk mengarahkan semua permin
 # Disable Directory Browsing
 Options -Indexes
 
-# Protect sensitive files
-<FilesMatch "\.(env|log|htaccess|htpasswd)$">
+# Protect Sensitive Files
+<FilesMatch "\.(env|log|htaccess)$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>
 ```
 
----
+### 6. Database Setup
 
-### 6. 🧪 Import Database & Jalankan Migrasi
+1. **Buat database** di cPanel InfinityFree
+2. **Import** file SQL via phpMyAdmin
+3. **Jalankan migrasi** jika menggunakan session database:
 
-1. **Buat Database**: Di cPanel InfinityFree, buat database baru.
-2. **Import SQL**: Masuk ke **phpMyAdmin**, pilih databasenya, lalu *import* file `.sql` dari lokal.
-3. **Migrasi Tambahan**: Jika kamu mengikuti saran untuk `SESSION_DRIVER=database`, kamu perlu menambahkan tabel `sessions` dan `cache`.
-
-**Di lokal**, jalankan:
 ```bash
+# Di lokal
 php artisan session:table
 php artisan cache:table
 php artisan migrate
 ```
 
-Kemudian ekspor database yang sudah lengkap dan import ke InfinityFree.
+### 7. Testing
 
----
+Buat route test di `routes/web.php`:
 
-### 7. 🔄 Optimasi Tambahan
-
-**a. Buat file `laravel/bootstrap/cache/config.php` secara manual:**
-
-Di lokal, jalankan:
-```bash
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-```
-
-Upload file cache yang dihasilkan ke server.
-
-**b. Compress Assets (Opsional):**
-
-Jika menggunakan Laravel Mix, pastikan untuk build production:
-```bash
-npm run production
-```
-
----
-
-### 8. ✅ Testing & Debugging
-
-1. **Test Basic Route**: Akses `http://domainkamu.epizy.com`
-2. **Test Database**: Buat route sederhana untuk test koneksi database
-3. **Check Error Logs**: Periksa error log di cPanel jika ada masalah
-
-**Route Test Database** (tambahkan di `routes/web.php`):
 ```php
 Route::get('/test-db', function () {
     try {
         \DB::connection()->getPdo();
-        return "Database connection successful!";
+        return "✅ Database connection successful!";
     } catch (\Exception $e) {
-        return "Database connection failed: " . $e->getMessage();
+        return "❌ Database failed: " . $e->getMessage();
     }
 });
 ```
 
----
-
-# ⚠️ Kendala Umum & Solusi
-
-| Masalah | Solusi |
-|---------|--------|
-| **Error 500 / Halaman Putih** | Aktifkan `APP_DEBUG=true` sementara. Periksa path di `index.php`, syntax `.env`, dan permission `storage/`. |
-| **Asset (CSS/JS) Tidak Load** | Gunakan helper `public_asset()` atau path manual. Pastikan folder `assets/` di `htdocs/`. |
-| **Session Error** | Pastikan tabel `sessions` sudah ada dan `SESSION_DRIVER=database`. |
-| **Database Connection Failed** | Periksa kredensial database di `.env` dan pastikan database sudah dibuat. |
-| **403 Forbidden** | Periksa permission folder dan file `.htaccess`. |
-| **Mixed Content Error** | Set `FORCE_HTTPS=true` jika menggunakan HTTPS. |
-| **Upload Gagal/Timeout** | Gunakan upload bertahap untuk folder `vendor/`. Set FileZilla ke mode 1 concurrent transfer. |
-| **Vendor Tidak Lengkap** | Cek apakah semua package di `vendor/` terupload. Gunakan metode kompresi jika perlu. |
-| **Class Not Found Error** | Jalankan `composer dump-autoload` di lokal, lalu upload ulang `vendor/autoload.php` dan folder `vendor/composer/`. |
+Akses: `http://yourdomain.page.gd/test-db`
 
 ---
 
-## ⚠️ Kendala Tambahan (Studi Kasus Real dari Deploy)
+## ⚠️ Troubleshooting
 
-Berikut ini adalah beberapa error nyata yang pernah dialami saat deploy Laravel ke InfinityFree, beserta solusinya:
+### 🔴 Kendala Umum & Solusi
 
-### ❌ 1. `Cannot resolve public path` saat generate PDF (`Pdf::loadView()`)
-**Penyebab:** Hosting InfinityFree tidak mengenali folder `public/` Laravel karena kita ubah struktur direktori.
+| **Masalah** | **Gejala** | **Solusi** |
+|-------------|------------|------------|
+| **Error 500 / Halaman Putih** | Server Error, halaman kosong | • Aktifkan `APP_DEBUG=true` sementara<br>• Periksa path di `index.php`<br>• Cek permission `storage/` (755)<br>• Validasi syntax `.env` |
+| **Asset (CSS/JS) Tidak Load** | Style tidak muncul, 404 error | • Gunakan helper `public_asset()`<br>• Pastikan folder `assets/` di `htdocs/`<br>• Cek console browser untuk error |
+| **Session Error** | Login logout terus, session hilang | • Pastikan tabel `sessions` ada<br>• Set `SESSION_DRIVER=database`<br>• Cek permission `storage/framework/sessions/` |
+| **Database Connection Failed** | Error koneksi database | • Verifikasi kredensial di `.env`<br>• Pastikan database sudah dibuat<br>• Test dengan route `/test-db` |
+| **403 Forbidden** | Akses ditolak | • Periksa permission folder<br>• Cek file `.htaccess`<br>• Pastikan `index.php` ada |
+| **Mixed Content Error** | HTTPS/HTTP conflict | • Set `FORCE_HTTPS=true`<br>• Update semua URL ke HTTPS |
+| **Upload Gagal/Timeout** | Upload terputus, file rusak | • Upload bertahap untuk `vendor/`<br>• Set FileZilla 1 concurrent transfer<br>• Upload di jam sepi (malam) |
+| **Vendor Tidak Lengkap** | Class not found error | • Cek semua package di `vendor/`<br>• Gunakan metode kompresi<br>• Verifikasi `autoload.php` |
 
-**Solusi:** Tambahkan di `AppServiceProvider.php` method `register()`:
+### 🔴 Kendala Tambahan (Studi Kasus Real)
+
+#### ❌ 1. Error: `Cannot resolve public path` saat Generate PDF
+
+**Penyebab:** InfinityFree tidak mengenali folder `public/` Laravel karena struktur direktori diubah.
+
+**Gejala:**
+```
+ErrorException: file_get_contents(public/css/app.css): failed to open stream
+```
+
+**Solusi:**
 ```php
+// Di AppServiceProvider.php method register()
 $this->app->bind('path.public', function () {
     return base_path('../');
 });
 ```
 
-**Tambahan:** Jika masih error meski sudah bind path, pastikan:
-- File `composer.json` **ada** di `htdocs/laravel/`
-- Semua file cache di `bootstrap/cache/` telah dihapus sebelum upload (`config.php`, `services.php`, dll)
-- Tidak ada error di view `pdf.blade.php`
-- Package `barryvdh/laravel-dompdf` sudah terupload lengkap di `vendor/`
+**Checklist tambahan:**
+- ✅ File `composer.json` ada di `htdocs/laravel/`
+- ✅ Hapus semua cache di `bootstrap/cache/`
+- ✅ Package `barryvdh/laravel-dompdf` terupload lengkap
 
-### ❌ 2. Error: `file_get_contents(...composer.json): Failed to open stream`
+#### ❌ 2. Error: `file_get_contents(...composer.json): Failed to open stream`
+
 **Penyebab:** File `composer.json` belum terupload ke hosting.
 
-**Solusi:** Upload file `composer.json` ke folder `htdocs/laravel/`.
+**Solusi:** Upload file `composer.json` ke folder `htdocs/laravel/`
 
-### ❌ 3. Error 500 saat `AppServiceProvider` mengubah `path.public`
-**Penyebab:** `useBasePath()` atau `bind('path.public')` dieksekusi terlalu dini sebelum Laravel selesai bootstrap.
+#### ❌ 3. PDF Generator Error saat `Pdf::loadView()`
 
-**Solusi:** Ubah urutan binding path hanya di `register()` dan pastikan `dd(public_path())` di-**comment** saat deploy.
+**Penyebab:** Error resolve asset saat path public tidak cocok.
 
-### ❌ 4. PDF Generator Error saat `Pdf::loadView()` dipanggil
-**Penyebab:** Versi `barryvdh/laravel-dompdf` error resolve asset saat path public tidak cocok.
-
-**Solusi alternatif (yang berhasil):**
-Ganti method controller `exportPdf()` dari:
+**Solusi Alternatif:**
 ```php
+// Ganti dari:
 $pdf = Pdf::loadView('tabungan.pdf', compact(...));
-```
-menjadi pendekatan tanpa helper yang mengakses path:
 
-```php
+// Menjadi:
 $view = view('tabungan.pdf', compact(...))->render();
 $pdf = Pdf::loadHtml($view);
 ```
 
-### ❌ 5. TailwindCSS tidak ter-render
-**Penyebab:** Asset Tailwind (`app.css`) belum berhasil dipanggil karena helper `asset()` mengarah ke path Laravel asli.
+#### ❌ 4. TailwindCSS Tidak Ter-render
 
-**Solusi:** Gunakan helper kustom `public_asset()`:
+**Penyebab:** Helper `asset()` mengarah ke path Laravel asli.
 
-```php
-function public_asset($path)
-{
-    return url('/') . '/' . ltrim($path, '/');
-}
-```
-
-Kemudian di Blade:
+**Solusi:** Gunakan helper kustom:
 ```blade
+<!-- Ganti dari: -->
+<link href="{{ asset('css/app.css') }}" rel="stylesheet">
+
+<!-- Menjadi: -->
 <link href="{{ public_asset('assets/css/app.css') }}" rel="stylesheet">
 ```
 
-### ❌ 6. TailwindCSS Tidak Ter-render (Build Asset Modern)
+#### ❌ 5. Laravel Mix / Vite Build Assets Error
 
-**Penyebab:** Hosting tidak mengenali path helper `asset()` karena struktur direktori Laravel dimodifikasi.
+**Penyebab:** File hasil build tidak dikenali struktur hosting.
 
-**Solusi:** Jika kamu menggunakan Laravel + Vite (atau Tailwind CSS modern), pastikan file hasil `npm run build` sudah terupload ke `htdocs/build/` dan kamu memanggilnya seperti ini di Blade:
-
+**Solusi:**
+1. Pastikan file hasil `npm run build` terupload ke `htdocs/build/`
+2. Gunakan path manual:
 ```blade
 <link rel="stylesheet" href="{{ asset('build/assets/app-Bu5eBVKL.css') }}">
 <script src="{{ asset('build/assets/app-CLAht3ih.js') }}" defer></script>
 ```
 
-**Catatan:** Nama file `.css` dan `.js` bisa berubah tergantung hash dari hasil build.
-
-
----
-
-## 📌 Catatan Tambahan untuk Hosting Gratisan:
-
-- Jangan aktifkan `APP_DEBUG=true` terlalu lama (karena error log bisa terbuka ke publik)
-- Hindari package besar atau dynamic image generator jika gak benar-benar dibutuhkan
-- Gunakan caching manual (`config.php`) daripada artisan `config:cache`
-- Hindari sistem autentikasi ribet seperti Laravel Sanctum di InfinityFree
+> **💡 Tip:** Nama file hash berubah setiap build. Cek nama file yang tepat di folder `build/assets/`
 
 ---
 
-## 📝 Tips Tambahan
+## 📦 Source Code Penting
 
-1. **Backup Selalu**: Selalu backup database dan file sebelum deploy.
-2. **Version Control**: Gunakan Git untuk tracking perubahan.
-3. **Environment Specific**: Pisahkan konfigurasi untuk development dan production.
-4. **Monitor Error Logs**: Selalu cek error log di cPanel untuk debugging.
-5. **Optimize Images**: Compress gambar sebelum upload untuk menghemat storage.
+### 🔧 `config/app.php` - Provider & Alias
 
----
-
-
----
-
-## 📂 Source Code Penting
-
-### 📁 `config/app.php`
-
-Tambahkan alias dan provider untuk `barryvdh/laravel-dompdf` agar bisa dipakai:
+Daftarkan package PDF generator:
 
 ```php
-'providers' => [
+<?php
 
-    // Provider lainnya...
-    Barryvdh\DomPDF\ServiceProvider::class,
+return [
+    'providers' => [
+        // Provider lainnya...
+        Barryvdh\DomPDF\ServiceProvider::class,
+    ],
 
-],
-
-'aliases' => [
-
-    // Alias lainnya...
-    'Pdf' => Barryvdh\DomPDF\Facade\Pdf::class,
-
-],
+    'aliases' => [
+        // Alias lainnya...
+        'Pdf' => Barryvdh\DomPDF\Facade\Pdf::class,
+    ],
+];
 ```
 
----
-
-### 📁 `app/Providers/AppServiceProvider.php`
-
-Pastikan binding `path.public` dilakukan **hanya** di dalam method `register()`:
+### 🔧 `app/Providers/AppServiceProvider.php` - Path Configuration
 
 ```php
+<?php
+
+namespace App\Providers;
+
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * Register any application services.
+     */
     public function register()
     {
         // Perbaiki path public untuk InfinityFree
-        \$this->app->bind('path.public', function () {
+        $this->app->bind('path.public', function () {
             return base_path('../');
         });
     }
 
+    /**
+     * Bootstrap any application services.
+     */
     public function boot()
-    // {
-    //     // Opsional: Paksa HTTPS
-    //     if (env('FORCE_HTTPS', false)) {
-    //         \URL::forceScheme('https');
-    //     }
-    // }
-}
-```
-
----
-
-### 📁 `app/Http/Controllers/NamaController.php`
-
-Contoh controller method untuk generate PDF **tanpa `loadView()`** (yang error di InfinityFree):
-
-```php
-use Barryvdh\DomPDF\Facade\Pdf;
-
-public function exportPdf(Request \$request)
-{
-    \$data = \$this->getFilteredQuery(\$request)->get();
-
-    \$totalPemasukan = \$data->where('kategoriJenis.jenis', 'Pemasukan')->sum('nominal');
-    \$totalPengeluaran = \$data->where('kategoriJenis.jenis', 'Pengeluaran')->sum('nominal');
-    \$saldoAkhir = \$totalPemasukan - \$totalPengeluaran;
-
-    \$filters = \$request->only(['tanggal_mulai', 'tanggal_selesai']);
-
-    // Render manual dulu untuk menghindari error path
-    \$view = view('tabungan.pdf', compact(
-        'data',
-        'totalPemasukan',
-        'totalPengeluaran',
-        'saldoAkhir',
-        'filters'
-    ))->render();
-
-    \$pdf = Pdf::loadHtml(\$view);
-
-    return \$pdf->download('laporan-tabungan-' . date('d-m-Y') . '.pdf');
-}
-```
-
----
-
-### 📁 `app/helpers.php` (Custom Helper)
-
-Untuk mengatasi asset path yang error karena `asset()` Laravel gagal resolve:
-
-```php
-if (!function_exists('public_asset')) {
-    function public_asset(\$path)
     {
-        return url('/') . '/' . ltrim(\$path, '/');
+        // Paksa HTTPS jika diperlukan (opsional)
+        if (env('FORCE_HTTPS', false)) {
+            \URL::forceScheme('https');
+        }
     }
 }
 ```
 
-Dan daftarkan di `composer.json`:
+### 🔧 `app/Http/Controllers/ExampleController.php` - PDF Export
 
-```json
-"autoload": {
-    "files": [
-        "app/helpers.php"
-    ],
-    ...
+Contoh controller untuk generate PDF tanpa error path:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
+
+class ExampleController extends Controller
+{
+    public function exportPdf(Request $request)
+    {
+        $data = $this->getFilteredQuery($request)->get();
+        
+        $totalPemasukan = $data->where('kategoriJenis.jenis', 'Pemasukan')->sum('nominal');
+        $totalPengeluaran = $data->where('kategoriJenis.jenis', 'Pengeluaran')->sum('nominal');
+        $saldoAkhir = $totalPemasukan - $totalPengeluaran;
+        
+        $filters = $request->only(['tanggal_mulai', 'tanggal_selesai']);
+
+        // Render manual untuk menghindari error path
+        $view = view('laporan.pdf', compact(
+            'data',
+            'totalPemasukan', 
+            'totalPengeluaran',
+            'saldoAkhir',
+            'filters'
+        ))->render();
+
+        $pdf = Pdf::loadHtml($view);
+        
+        return $pdf->download('laporan-' . date('d-m-Y') . '.pdf');
+    }
 }
 ```
 
-Lalu jalankan `composer dump-autoload` di lokal sebelum upload.
+### 🔧 `app/helpers.php` - Custom Asset Helper
 
+```php
+<?php
 
-## 🚀 Selesai!
+/**
+ * Generate asset URL untuk InfinityFree hosting
+ */
+if (!function_exists('public_asset')) {
+    function public_asset($path)
+    {
+        return url('/') . '/' . ltrim($path, '/');
+    }
+}
 
-Jika semua langkah diikuti dengan benar, aplikasi Laravel kamu seharusnya sudah berjalan lancar di InfinityFree. Ingat untuk selalu test setiap functionality setelah deploy.
+/**
+ * Check if app in production
+ */
+if (!function_exists('is_production')) {
+    function is_production()
+    {
+        return app()->environment('production');
+    }
+}
+
+/**
+ * Generate versioned asset untuk cache busting
+ */
+if (!function_exists('versioned_asset')) {
+    function versioned_asset($path)
+    {
+        $timestamp = filemtime(public_path($path));
+        return public_asset($path) . '?v=' . $timestamp;
+    }
+}
+```
+
+### 🔧 `composer.json` - Autoload Configuration
+
+```json
+{
+    "name": "laravel/laravel",
+    "type": "project",
+    "description": "The Laravel Framework.",
+    "keywords": ["framework", "laravel"],
+    "license": "MIT",
+    "require": {
+        "php": "^7.4|^8.0",
+        "laravel/framework": "^8.75"
+    },
+    "autoload": {
+        "files": [
+            "app/helpers.php"
+        ],
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php artisan package:discover --ansi"
+        ]
+    }
+}
+```
+
+### 🔧 `resources/views/layouts/app.blade.php` - Asset Loading
+
+```blade
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
+    <title>{{ config('app.name', 'Laravel') }}</title>
+
+    <!-- Styles -->
+    @if(is_production())
+        <!-- Production: gunakan public_asset helper -->
+        <link href="{{ public_asset('assets/css/app.css') }}" rel="stylesheet">
+        <link href="{{ public_asset('assets/css/bootstrap.min.css') }}" rel="stylesheet">
+    @else
+        <!-- Development: gunakan asset helper biasa -->
+        <link href="{{ asset('css/app.css') }}" rel="stylesheet">
+        <link href="{{ asset('css/bootstrap.min.css') }}" rel="stylesheet">
+    @endif
+</head>
+<body>
+    <div id="app">
+        @yield('content')
+    </div>
+
+    <!-- Scripts -->
+    @if(is_production())
+        <script src="{{ public_asset('assets/js/app.js') }}"></script>
+        <script src="{{ public_asset('assets/js/bootstrap.bundle.min.js') }}"></script>
+    @else
+        <script src="{{ asset('js/app.js') }}"></script>
+        <script src="{{ asset('js/bootstrap.bundle.min.js') }}"></script>
+    @endif
+    
+    @stack('scripts')
+</body>
+</html>
+```
+
+### 🔧 `routes/web.php` - Testing Routes
+
+```php
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+// Route untuk testing database connection
+Route::get('/test-db', function () {
+    try {
+        \DB::connection()->getPdo();
+        $dbName = \DB::connection()->getDatabaseName();
+        return "✅ Database connection successful!<br>Database: {$dbName}";
+    } catch (\Exception $e) {
+        return "❌ Database connection failed: " . $e->getMessage();
+    }
+});
+
+// Route untuk testing file permissions
+Route::get('/test-storage', function () {
+    $storagePath = storage_path('app');
+    $isWritable = is_writable($storagePath);
+    
+    return $isWritable 
+        ? "✅ Storage directory is writable" 
+        : "❌ Storage directory is not writable";
+});
+
+// Route untuk testing helper functions
+Route::get('/test-helpers', function () {
+    return [
+        'public_asset' => public_asset('css/app.css'),
+        'is_production' => is_production(),
+        'app_url' => config('app.url'),
+        'public_path' => public_path(),
+    ];
+});
+```
+
+---
+
+## 🎯 Tips & Optimasi
+
+### Performance
+```bash
+# Di lokal sebelum upload
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+npm run production  # Jika pakai Laravel Mix
+```
+
+### Security
+- 🔒 Selalu gunakan `APP_DEBUG=false` di production
+- 🔒 Jangan expose file `.env`
+- 🔒 Update Laravel ke versi terbaru
+- 🔒 Gunakan HTTPS jika tersedia
+
+### Upload Strategy
+- ⏰ Upload di jam 00:00-06:00 WIB
+- 📡 Gunakan koneksi kabel untuk stabilitas
+- 📦 Compress asset sebelum upload
+- 💾 Backup sebelum deploy
+
+---
+
+## ❓ FAQ
+
+**Q: Berapa lama waktu upload ke InfinityFree?**
+A: File Laravel dasar: 5-10 menit, Vendor lengkap: 30-60 menit
+
+**Q: Apakah bisa pakai Laravel 11?**
+A: Ya, tapi perlu penyesuaian struktur bootstrap yang baru
+
+**Q: Bagaimana jika upload vendor gagal terus?**
+A: Coba upload di jam sepi atau gunakan metode kompresi
+
+**Q: Bisa pakai database selain MySQL?**
+A: InfinityFree hanya support MySQL/MariaDB
+
+**Q: Bagaimana cara update aplikasi?**
+A: Upload file yang berubah saja, jangan upload ulang vendor jika tidak perlu
+
+---
+
+## 📞 Dukungan
+
+Jika mengalami kendala:
+1. Periksa [Troubleshooting](#-troubleshooting) di atas
+2. Cek error log di cPanel InfinityFree
+3. Buat issue di repository ini
+4. Join komunitas Laravel Indonesia
+
+---
+
+## 📄 Lisensi
+
+Panduan ini gratis digunakan untuk keperluan edukasi dan komersial.
+
+---
+
+**💡 Pro Tip:** Bookmark panduan ini untuk referensi deploy selanjutnya!
+
+---
+
+*Dibuat dengan ❤️ untuk komunitas Laravel Indonesia*

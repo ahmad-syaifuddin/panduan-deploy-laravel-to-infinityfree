@@ -717,7 +717,7 @@ npm run production  # Jika pakai Laravel Mix
 A: File Laravel dasar: 5-10 menit, Vendor lengkap: 30-60 menit
 
 **Q: Apakah bisa pakai Laravel 11?**
-A: Ya, tapi perlu penyesuaian struktur bootstrap yang baru
+A: Ya, tapi perlu penyesuaian struktur folder bootstrap yang baru
 
 **Q: Bagaimana jika upload vendor gagal terus?**
 A: Coba upload di jam sepi atau gunakan metode kompresi

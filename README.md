@@ -244,7 +244,7 @@ if (!is_dir($path)) {
 if ($zip->open($namaZip) === TRUE) {
     $zip->extractTo($path);
     $zip->close();
-    echo "Vendor extracted to laravel/vendor successfully.<br>";
+    echo "Vendor extracted to laravel/vendor successfully ✅.<br>";
 
     // ✅ Pastikan nama file yang dihapus sama dengan yang dibuka
     if (unlink($namaZip)) {
@@ -497,7 +497,7 @@ if (!is_dir($path)) {
 if ($zip->open($namaZip) === TRUE) {
     $zip->extractTo($path);
     $zip->close();
-    echo "Vendor extracted to laravel/vendor successfully.<br>";
+    echo "Vendor extracted to laravel/vendor successfully ✅.<br>";
 
     // ✅ Pastikan nama file yang dihapus sama dengan yang dibuka
     if (unlink($namaZip)) {

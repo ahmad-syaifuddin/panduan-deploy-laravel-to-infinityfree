@@ -486,22 +486,28 @@ Buat file `extract.php` di `htdocs/` untuk ekstrak vendor yang sudah di-zip:
 
 ```php
 <?php
+<?php
 $zip = new ZipArchive;
-$path = __DIR__ . '/laravel/vendor'; // langsung ke folder vendor Laravel kamu
+$path = __DIR__ . '/laravel/vendor'; // direktori tujuan ekstrak
+$namaZip = 'test.zip'; 
 
 if (!is_dir($path)) {
     mkdir($path, 0755, true);
 }
 
-if ($zip->open('vendor.zip') === TRUE) {
+if ($zip->open($namaZip) === TRUE) {
     $zip->extractTo($path);
     $zip->close();
-    echo 'Vendor extracted to laravel/vendor successfully.';
-    // Hapus file zip setelah extract berhasil
-    unlink('vendor.zip');
-    echo '<br>vendor.zip deleted.';
+    echo "Vendor extracted to laravel/vendor successfully.<br>";
+
+    // ✅ Pastikan nama file yang dihapus sama dengan yang dibuka
+    if (unlink($namaZip)) {
+        echo "$namaZip deleted.";
+    } else {
+        echo "Failed to delete $namaZip.";
+    }
 } else {
-    echo 'Failed to open vendor.zip';
+    echo "Failed to open $namaZip.";
 }
 ?>
 ```

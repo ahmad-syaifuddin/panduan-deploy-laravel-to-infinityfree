@@ -218,6 +218,50 @@ tar -czf ../vendor-part2.tar.gz composer/ psr/ monolog/
 
 Upload file `.tar.gz` lalu extract via File Manager cPanel.
 
+##### 🚀 Metode C: ZIP + Extract Script
+
+**Di lokal:**
+```bash
+# Kompres folder vendor menjadi zip
+cd your-laravel-project/
+zip -r vendor.zip vendor/
+```
+
+**Upload ke hosting:**
+1. Upload file `vendor.zip` ke folder `htdocs/`
+2. Buat file `extract.php` di `htdocs/` dengan kode berikut:
+
+```php
+<?php
+$zip = new ZipArchive;
+$path = __DIR__ . '/laravel/vendor'; // langsung ke folder vendor Laravel kamu
+
+if (!is_dir($path)) {
+    mkdir($path, 0755, true);
+}
+
+if ($zip->open('vendor.zip') === TRUE) {
+    $zip->extractTo($path);
+    $zip->close();
+    echo 'Vendor extracted to laravel/vendor successfully.';
+    // Hapus file zip setelah extract berhasil
+    unlink('vendor.zip');
+    echo '<br>vendor.zip deleted.';
+} else {
+    echo 'Failed to open vendor.zip';
+}
+?>
+```
+
+3. Akses `http://yourdomain.page.gd/extract.php` via browser
+4. Tunggu proses extract selesai
+5. **Hapus file `extract.php`** setelah selesai untuk keamanan
+
+**⚠️ Catatan Penting:**
+- File `vendor.zip` mungkin besar (20-50MB), pastikan koneksi stabil
+- Proses extract bisa memakan waktu 2-5 menit
+- Selalu hapus `extract.php` setelah digunakan
+
 #### ⚙️ Pengaturan FileZilla
 
 ```
@@ -429,6 +473,40 @@ $pdf = Pdf::loadHtml($view);
 ---
 
 ## 📦 Source Code Penting
+
+### 🔧 Script Extract Vendor
+
+Buat file `extract.php` di `htdocs/` untuk ekstrak vendor yang sudah di-zip:
+
+```php
+<?php
+$zip = new ZipArchive;
+$path = __DIR__ . '/laravel/vendor'; // langsung ke folder vendor Laravel kamu
+
+if (!is_dir($path)) {
+    mkdir($path, 0755, true);
+}
+
+if ($zip->open('vendor.zip') === TRUE) {
+    $zip->extractTo($path);
+    $zip->close();
+    echo 'Vendor extracted to laravel/vendor successfully.';
+    // Hapus file zip setelah extract berhasil
+    unlink('vendor.zip');
+    echo '<br>vendor.zip deleted.';
+} else {
+    echo 'Failed to open vendor.zip';
+}
+?>
+```
+
+**Cara pakai:**
+1. Zip folder `vendor/` di lokal jadi `vendor.zip`
+2. Upload `vendor.zip` ke `htdocs/`
+3. Upload `extract.php` ke `htdocs/`
+4. Akses `http://yourdomain.page.gd/extract.php`
+5. Tunggu proses selesai
+6. **Hapus `extract.php`** untuk keamanan
 
 ### 🔧 `config/app.php` - Provider & Alias
 
@@ -720,13 +798,16 @@ A: File Laravel dasar: 5-10 menit, Vendor lengkap: 30-60 menit
 A: Ya, tapi perlu penyesuaian struktur folder bootstrap yang baru
 
 **Q: Bagaimana jika upload vendor gagal terus?**
-A: Coba upload di jam sepi atau gunakan metode kompresi
+A: Coba upload di jam sepi atau gunakan metode kompresi, atau gunakan script extract.php untuk file zip
 
 **Q: Bisa pakai database selain MySQL?**
 A: InfinityFree hanya support MySQL/MariaDB
 
 **Q: Bagaimana cara update aplikasi?**
 A: Upload file yang berubah saja, jangan upload ulang vendor jika tidak perlu
+
+**Q: Apakah file extract.php aman?**
+A: Pastikan hapus file extract.php setelah digunakan untuk mencegah akses yang tidak diinginkan
 
 ---
 

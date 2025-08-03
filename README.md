@@ -486,7 +486,6 @@ Buat file `extract.php` di `htdocs/` untuk ekstrak vendor yang sudah di-zip:
 
 ```php
 <?php
-<?php
 $zip = new ZipArchive;
 $path = __DIR__ . '/laravel/vendor'; // direktori tujuan ekstrak
 $namaZip = 'test.zip'; 

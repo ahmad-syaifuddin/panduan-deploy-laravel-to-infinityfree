@@ -584,7 +584,10 @@ Contoh controller untuk generate PDF tanpa error path:
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\View; // ✅ Tambahkan ini
 use Barryvdh\DomPDF\Facade\Pdf;
+use Dompdf\Dompdf; // ✅ Tambahkan ini juga
+use Dompdf\Options; // ✅ Ini penting buat konfigurasi DomPDF
 
 class ExampleController extends Controller
 {
@@ -611,6 +614,40 @@ class ExampleController extends Controller
         
         return $pdf->download('laporan-' . date('d-m-Y') . '.pdf');
     }
+
+     // METHOD BARU UNTUK EXPORT PDF (OPSI KEDUA)
+    public function exportPdf(Request $request)
+    {
+    // Ambil data
+    $data = $this->getFilteredQuery($request)->get();
+    $totalPemasukan = $data->where('kategoriJenis.jenis', 'Pemasukan')->sum('nominal');
+    $totalPengeluaran = $data->where('kategoriJenis.jenis', 'Pengeluaran')->sum('nominal');
+    $saldoAkhir = $totalPemasukan - $totalPengeluaran;
+    $filters = $request->only(['tanggal_mulai', 'tanggal_selesai']);
+
+    // Render HTML view ke string
+    $html = View::make('tabungan.pdf', compact(
+        'data',
+        'totalPemasukan',
+        'totalPengeluaran',
+        'saldoAkhir',
+        'filters'
+    ))->render();
+
+    // Setup DomPDF
+    $options = new Options();
+    $options->set('isRemoteEnabled', true); // aktifkan load asset dari URL
+    $dompdf = new Dompdf($options);
+
+    $dompdf->loadHtml($html);
+    $dompdf->setPaper('A4', 'portrait');
+    $dompdf->render();
+
+    // Output sebagai file download
+    return response($dompdf->output(), 200)
+        ->header('Content-Type', 'application/pdf')
+        ->header('Content-Disposition', 'attachment; filename="laporan-tabungan-' . date('d-m-Y') . '.pdf"');
+}
 }
 ```
 

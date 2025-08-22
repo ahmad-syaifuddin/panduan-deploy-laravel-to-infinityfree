@@ -476,6 +476,90 @@ $pdf = Pdf::loadHtml($view);
 
 > **💡 Tip:** Nama file hash berubah setiap build. Cek nama file yang tepat di folder `build/assets/`
 
+# Dokumentasi: Penanganan Upload File di Shared Hosting (Laravel)
+
+Dokumen ini menjelaskan solusi untuk masalah umum saat menangani upload file di lingkungan shared hosting (seperti InfinityFree), di mana struktur direktori web root (`htdocs`) terpisah dari direktori utama aplikasi Laravel.
+
+---
+
+## 1. Masalah (The Problem)
+
+Pada setup shared hosting yang umum, struktur direktori seringkali terlihat seperti ini:
+
+```
+/htdocs
+|-- avatars/         <-- Folder publik untuk gambar
+|-- build/
+|-- index.php
+|-- laravel_core/    <-- Direktori inti Laravel (app, config, dll.)
+|   |-- app/
+|   |-- public/      <-- Folder public bawaan Laravel
+|   |-- ...
+```
+
+Masalah utamanya adalah helper `public_path()` di Laravel secara default akan menunjuk ke `htdocs/laravel_core/public/`, bukan ke `htdocs/`.
+
+Jika kita menggunakan kode seperti di bawah ini untuk mengunggah file:
+
+```php
+// Kode yang SALAH untuk shared hosting
+$request->avatar->move(public_path('avatars'), $imageName);
+```
+
+File akan terunggah ke lokasi yang salah (`htdocs/laravel_core/public/avatars/`), sementara view dan helper `asset()` mencoba mengambilnya dari lokasi yang benar (`htdocs/avatars/`). Hal ini menyebabkan **Error 404 Not Found** karena file tidak ditemukan di URL yang diharapkan.
+
+## 2. Solusi (The Solution)
+
+Solusinya adalah dengan menghindari penggunaan `public_path()` untuk menentukan tujuan upload. Sebaliknya, kita menggunakan variabel superglobal PHP `$_SERVER['DOCUMENT_ROOT']`.
+
+`$_SERVER['DOCUMENT_ROOT']` secara andal akan selalu mengembalikan path absolut ke direktori root dokumen server web (dalam kasus ini, `htdocs`). Ini memastikan bahwa kita selalu menargetkan direktori yang benar, terlepas dari di mana direktori inti Laravel kita berada.
+
+## 3. Contoh Implementasi Kode
+
+Berikut adalah implementasi yang benar di dalam sebuah controller (contoh dari `ProfileController.php`) untuk menangani upload avatar.
+
+```php
+// File: app/Http/Controllers/ProfileController.php
+
+public function update(Request $request)
+{
+    // ... (validasi dan logika lainnya)
+
+    if ($request->hasFile('avatar')) {
+        // 1. Dapatkan path root dokumen server web (htdocs).
+        $documentRoot = $_SERVER['DOCUMENT_ROOT'];
+
+        // 2. Hapus file lama menggunakan path yang benar.
+        if ($user->avatar && File::exists($documentRoot . $user->avatar)) {
+            File::delete($documentRoot . $user->avatar);
+        }
+
+        // 3. Buat nama file baru yang unik.
+        $imageName = strtolower(str_replace(' ', '_', $user->codename)) . '_' . time() . '.' . $request->avatar->extension();
+
+        // 4. Tentukan path tujuan yang benar di dalam web root.
+        $destinationPath = $documentRoot . '/avatars';
+
+        // 5. Pindahkan file yang diunggah ke tujuan yang benar.
+        $request->avatar->move($destinationPath, $imageName);
+
+        // 6. Simpan path relatif URL ke database (dengan slash di depan).
+        $user->avatar = '/avatars/' . $imageName;
+    }
+
+    // ... (simpan user dan redirect)
+}
+```
+
+### Poin Kunci dari Solusi:
+
+* **`$_SERVER['DOCUMENT_ROOT']`**: Digunakan sebagai basis path yang andal.
+* **`$destinationPath`**: Secara eksplisit menargetkan folder `avatars` di dalam `htdocs`.
+* **Penyimpanan Path di Database**: Path yang disimpan (`/avatars/namafile.jpg`) adalah path URL-relatif dari domain, yang akan bekerja dengan sempurna dengan helper `asset()` di view.
+
+Dengan mengikuti pendekatan ini, fungsionalitas upload file akan bekerja secara konsisten baik di lingkungan pengembangan lokal maupun di lingkungan shared hosting yang memiliki struktur direktori terpisah.
+
+
 ---
 
 ## 📦 Source Code Penting

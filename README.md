@@ -476,89 +476,186 @@ $pdf = Pdf::loadHtml($view);
 
 > **💡 Tip:** Nama file hash berubah setiap build. Cek nama file yang tepat di folder `build/assets/`
 
-# Dokumentasi: Penanganan Upload File di Shared Hosting (Laravel)
-
-Dokumen ini menjelaskan solusi untuk masalah umum saat menangani upload file di lingkungan shared hosting (seperti InfinityFree), di mana struktur direktori web root (`htdocs`) terpisah dari direktori utama aplikasi Laravel.
 
 ---
 
-## 1. Masalah (The Problem)
+# Dokumentasi Lengkap: 3 Metode Penanganan Upload File di Laravel untuk Shared Hosting (khususnya InfinityFree)
 
-Pada setup shared hosting yang umum, struktur direktori seringkali terlihat seperti ini:
+**Versi:** 1.2
+**Tanggal:** 23 Agustus 2025
+**Proyek:** BlackFile
 
+## Abstrak
+
+Dokumen ini adalah panduan teknis yang membandingkan tiga metode untuk menangani *upload* file pada aplikasi Laravel di lingkungan *shared hosting* dengan struktur direktori non-standar. Tujuannya adalah untuk memberikan pemahaman mendalam tentang setiap pendekatan, mulai dari yang paling sederhana hingga yang paling tangguh dan portabel.
+
+---
+
+## 1. Konteks Masalah Universal
+
+Pada banyak platform *shared hosting* (contoh: InfinityFree), struktur direktori untuk keamanan memisahkan *document root* (folder yang bisa diakses web) dari file inti aplikasi.
+
+**Struktur Direktori Tipikal:**
 ```
-/htdocs
-|-- avatars/         <-- Folder publik untuk gambar
-|-- build/
+/htdocs/               <-- Document Root (Akses Web)
+|-- uploads/           <-- Folder tujuan file upload kita
 |-- index.php
-|-- laravel_core/    <-- Direktori inti Laravel (app, config, dll.)
+|-- laravel_core/      <-- Direktori inti Laravel (Tidak bisa diakses web)
 |   |-- app/
-|   |-- public/      <-- Folder public bawaan Laravel
+|   |-- public/        <-- Folder public asli Laravel (TIDAK BISA DIAKSES)
 |   |-- ...
 ```
 
-Masalah utamanya adalah helper `public_path()` di Laravel secara default akan menunjuk ke `htdocs/laravel_core/public/`, bukan ke `htdocs/`.
+Masalahnya adalah *helper* `public_path()` dari Laravel akan selalu menunjuk ke `/htdocs/laravel_core/public/`, bukan ke `/htdocs/`. Ini menyebabkan semua file yang diunggah tidak dapat diakses melalui browser, sehingga menghasilkan **Error 404 Not Found**.
 
-Jika kita menggunakan kode seperti di bawah ini untuk mengunggah file:
+---
 
+## 2. Perbandingan Tiga Metode Solusi
+
+### Pendekatan #1: Menggunakan `$_SERVER['DOCUMENT_ROOT']`
+
+Ini adalah solusi paling langsung yang menggunakan variabel superglobal PHP untuk mendapatkan path absolut ke `htdocs`.
+
+-   **Kelebihan:**
+    -   **Sederhana & Lugas:** Logikanya sangat mudah dipahami.
+    -   **Andal di Lingkungan Target:** `$_SERVER['DOCUMENT_ROOT']` hampir selalu diatur dengan benar oleh server web seperti Apache.
+
+-   **Kekurangan:**
+    -   **Tidak Portabel:** Kode ini akan rusak di lingkungan development lokal standar, karena `DOCUMENT_ROOT` di lokal biasanya menunjuk ke `.../project/public`.
+    -   **Bukan "The Laravel Way":** Menggunakan variabel superglobal secara langsung menghindari abstraksi yang disediakan oleh *framework*, membuat kode lebih sulit diuji (*testing*).
+
+#### Contoh Kode (`$_SERVER['DOCUMENT_ROOT']`)
 ```php
-// Kode yang SALAH untuk shared hosting
-$request->avatar->move(public_path('avatars'), $imageName);
-```
-
-File akan terunggah ke lokasi yang salah (`htdocs/laravel_core/public/avatars/`), sementara view dan helper `asset()` mencoba mengambilnya dari lokasi yang benar (`htdocs/avatars/`). Hal ini menyebabkan **Error 404 Not Found** karena file tidak ditemukan di URL yang diharapkan.
-
-## 2. Solusi (The Solution)
-
-Solusinya adalah dengan menghindari penggunaan `public_path()` untuk menentukan tujuan upload. Sebaliknya, kita menggunakan variabel superglobal PHP `$_SERVER['DOCUMENT_ROOT']`.
-
-`$_SERVER['DOCUMENT_ROOT']` secara andal akan selalu mengembalikan path absolut ke direktori root dokumen server web (dalam kasus ini, `htdocs`). Ini memastikan bahwa kita selalu menargetkan direktori yang benar, terlepas dari di mana direktori inti Laravel kita berada.
-
-## 3. Contoh Implementasi Kode
-
-Berikut adalah implementasi yang benar di dalam sebuah controller (contoh dari `ProfileController.php`) untuk menangani upload avatar.
-
-```php
-// File: app/Http/Controllers/ProfileController.php
-
-public function update(Request $request)
+// Di dalam Controller
+public function uploadFile(Request $request)
 {
-    // ... (validasi dan logika lainnya)
-
     if ($request->hasFile('avatar')) {
-        // 1. Dapatkan path root dokumen server web (htdocs).
         $documentRoot = $_SERVER['DOCUMENT_ROOT'];
-
-        // 2. Hapus file lama menggunakan path yang benar.
-        if ($user->avatar && File::exists($documentRoot . $user->avatar)) {
-            File::delete($documentRoot . $user->avatar);
-        }
-
-        // 3. Buat nama file baru yang unik.
-        $imageName = strtolower(str_replace(' ', '_', $user->codename)) . '_' . time() . '.' . $request->avatar->extension();
-
-        // 4. Tentukan path tujuan yang benar di dalam web root.
-        $destinationPath = $documentRoot . '/avatars';
-
-        // 5. Pindahkan file yang diunggah ke tujuan yang benar.
+        $imageName = time() . '.' . $request->avatar->extension();
+        $destinationPath = $documentRoot . '/uploads/avatars'; // Menargetkan /htdocs/uploads/avatars
         $request->avatar->move($destinationPath, $imageName);
-
-        // 6. Simpan path relatif URL ke database (dengan slash di depan).
-        $user->avatar = '/avatars/' . $imageName;
+        $user->avatar = '/uploads/avatars/' . $imageName; // Simpan path relatif URL
+        $user->save();
     }
-
-    // ... (simpan user dan redirect)
 }
 ```
 
-### Poin Kunci dari Solusi:
+---
 
-* **`$_SERVER['DOCUMENT_ROOT']`**: Digunakan sebagai basis path yang andal.
-* **`$destinationPath`**: Secara eksplisit menargetkan folder `avatars` di dalam `htdocs`.
-* **Penyimpanan Path di Database**: Path yang disimpan (`/avatars/namafile.jpg`) adalah path URL-relatif dari domain, yang akan bekerja dengan sempurna dengan helper `asset()` di view.
+### Pendekatan #2: Menggunakan `dirname(base_path())`
 
-Dengan mengikuti pendekatan ini, fungsionalitas upload file akan bekerja secara konsisten baik di lingkungan pengembangan lokal maupun di lingkungan shared hosting yang memiliki struktur direktori terpisah.
+Pendekatan ini memanfaatkan *helper* `base_path()` dari Laravel untuk menemukan direktori induknya, yang dalam kasus *shared hosting* ini adalah `htdocs`.
 
+-   **Kelebihan:**
+    -   **Lebih Konsisten:** Bergantung pada struktur internal Laravel, bukan pada konfigurasi server web.
+    -   **Tanpa Variabel Global:** Menghindari penggunaan langsung `$_SERVER`, yang dianggap praktik lebih bersih.
+
+-   **Kekurangan:**
+    -   **Juga Tidak Portabel:** Sama seperti Pendekatan #1, logika ini akan **gagal total** di lingkungan development lokal, karena `dirname(base_path())` akan menunjuk ke direktori *di atas* folder proyek Anda.
+
+#### Contoh Kode (`dirname(base_path())`)
+```php
+// Di dalam Controller
+public function uploadFile(Request $request)
+{
+    if ($request->hasFile('avatar')) {
+        // base_path() -> /htdocs/laravel_core
+        // dirname(base_path()) -> /htdocs
+        $realPublicPath = dirname(base_path()); 
+        
+        $imageName = time() . '.' . $request->avatar->extension();
+        $destinationPath = $realPublicPath . '/uploads/avatars';
+        $request->avatar->move($destinationPath, $imageName);
+        $user->avatar = '/uploads/avatars/' . $imageName;
+        $user->save();
+    }
+}
+```
+
+---
+
+### Pendekatan #3: Deteksi Lingkungan Otomatis (Solusi Paling Direkomendasikan)
+
+Ini adalah solusi paling tangguh dan profesional. Kode ini menggabungkan kekuatan `public_path()` (untuk lokal) dan `dirname(base_path())` (untuk produksi) dengan membuatnya mampu mendeteksi di mana ia sedang berjalan.
+
+-   **Kelebihan:**
+    -   **Sangat Portabel:** Satu basis kode bekerja secara konsisten di lingkungan lokal dan produksi tanpa perlu diubah.
+    -   **Sesuai Praktik Terbaik Laravel:** Menggunakan *helper* inti Laravel dan logika kondisional berdasarkan environment.
+    -   **Dapat Diandalkan & Mudah Dipelihara:** Tidak ada lagi kejutan saat melakukan *deployment*.
+
+-   **Kekurangan:**
+    -   Memerlukan disiplin untuk memastikan variabel `APP_ENV` di file `.env` diatur dengan benar (`local` untuk lokal, `production` untuk server).
+
+#### Langkah 1: Konfigurasi `.env`
+
+-   **Di file `.env` lokal Anda:** `APP_ENV=local`
+-   **Di file `.env` server produksi:** `APP_ENV=production`
+
+Pastikan variabel `APP_ENV` diatur dengan benar di setiap lingkungan agar logika deteksi di atas berjalan.
+
+#### Langkah 2: Implementasi Kode Universal di Controller
+
+```php
+// File: app/Http/Controllers/PrototypeController.php
+
+public function store(Request $request)
+{
+    // ... (Validasi request) ...
+
+    // Deteksi lingkungan untuk menentukan path upload yang benar.
+    $realPublicPath = app()->environment('production')
+        ? dirname(base_path())      // Untuk server shared hosting
+        : public_path();            // Untuk development lokal
+
+    // Handle upload (contoh: cover_image)
+    if ($request->hasFile('cover_image')) {
+        $image = $request->file('cover_image');
+        $imageName = time() . '.' . $image->getClientOriginalExtension();
+        
+        // Gunakan path yang benar sesuai lingkungan
+        $image->move($realPublicPath . '/uploads/prototypes', $imageName);
+        
+        // Simpan path RELATIF ke database (selalu sama)
+        $validatedData['cover_image_path'] = 'uploads/prototypes/' . $imageName;
+    }
+    
+    // ...
+    Prototype::create($validatedData);
+    // ...
+}
+
+// Logika yang sama diterapkan untuk metode update() dan destroy() saat mengakses file.
+```
+
+### Langkah 3. Menampilkan Gambar di View (Blade)
+
+Dengan pendekatan ini, logika di sisi *view* tetap sangat bersih dan standar, karena path yang tersimpan di database selalu relatif terhadap *document root* yang benar.
+
+```html
+@if($prototype->cover_image_path)
+    {{-- Cek apakah path adalah URL eksternal atau file lokal --}}
+    @if(Illuminate\Support\Str::startsWith($prototype->cover_image_path, 'http'))
+        <img src="{{ $prototype->cover_image_path }}" alt="Cover Image">
+    @else
+        {{-- Helper 'asset()' akan bekerja sempurna di kedua lingkungan --}}
+        <img src="{{ asset($prototype->cover_image_path) }}" alt="Cover Image">
+    @endif
+@endif
+```
+
+---
+
+## Kesimpulan
+
+| Metode | Portabilitas (Lokal & Produksi) | Kepatuhan Laravel | Rekomendasi |
+| :--- | :--- | :--- | :--- |
+| `$_SERVER['DOCUMENT_ROOT']` | **Rendah** (Hanya Produksi) | Rendah | Untuk perbaikan cepat & sementara. |
+| `dirname(base_path())` | **Rendah** (Hanya Produksi) | Sedang | Mirip dengan di atas, sedikit lebih bersih. |
+| **Deteksi Lingkungan** | **Tinggi** (Universal) | **Tinggi** | **Sangat Direkomendasikan** untuk semua proyek. |
+
+Untuk proyek **BlackFile**, **Pendekatan #3** adalah standar yang harus diikuti untuk memastikan aplikasi dapat dikembangkan di lokal dan di-*deploy* ke *shared hosting* tanpa masalah.
+
+Dengan mengikuti panduan ini, fungsionalitas *upload* file akan menjadi tangguh, aman, dan sepenuhnya portabel antara lingkungan development dan produksi.
 
 ---
 

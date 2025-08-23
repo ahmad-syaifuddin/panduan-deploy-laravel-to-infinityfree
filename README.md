@@ -643,8 +643,6 @@ Dengan pendekatan ini, logika di sisi *view* tetap sangat bersih dan standar, ka
 @endif
 ```
 
----
-
 ## Kesimpulan
 
 | Metode | Portabilitas (Lokal & Produksi) | Kepatuhan Laravel | Rekomendasi |
@@ -657,6 +655,28 @@ Untuk proyek **BlackFile**, **Pendekatan #3** adalah standar yang harus diikuti 
 
 Dengan mengikuti panduan ini, fungsionalitas *upload* file akan menjadi tangguh, aman, dan sepenuhnya portabel antara lingkungan development dan produksi.
 
+
+## Prompt 
+```
+Buatkan saya method `store` dan `update` untuk sebuah `PrototypeController` di Laravel 10.
+
+**Konteks & Aturan:**
+1.  **Model:** `Prototype`
+2.  **Upload File:** Ada dua jenis file yang bisa di-upload: `cover_image` dan `icon`.
+3.  **Opsi Ganda:** Setiap file memiliki dua opsi input:
+    * Upload file (dari input `name="cover_image"` dan `name="icon"`).
+    * Link eksternal (dari input `name="cover_image_url"` dan `name="icon_url"`).
+4.  **Prioritas:** Jika kedua opsi (file dan URL) diisi, prioritaskan **upload file**.
+5.  **Path Portabel (Wajib):** Logika upload harus portabel antara environment `local` dan `production` (shared hosting).
+    * Di **produksi**, path tujuan adalah `dirname(base_path())`.
+    * Di **lokal**, path tujuan adalah `public_path()`.
+    * Gunakan `app()->environment('production')` untuk deteksi.
+6.  **Penyimpanan Database:** Path yang disimpan di database harus **relatif** (contoh: `uploads/prototypes/namafile.png`). Kolom di database bernama `cover_image_path` dan `icon_path`.
+7.  **Logika Update:** Saat `update`, jika file lokal baru di-upload atau diganti dengan URL, file lokal yang lama harus **dihapus** dari server.
+
+**Tugas:**
+Buatkan kode PHP lengkap untuk `public function store(Request $request)` dan `public function update(Request $request, Prototype $prototype)` yang menerapkan semua aturan di atas, termasuk validasi, pemindahan file, penghapusan file lama (di `update`), dan me-return redirect dengan pesan sukses.
+```
 ---
 
 ## 📦 Source Code Penting

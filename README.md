@@ -23,7 +23,7 @@
 
 Pastikan kamu sudah memiliki:
 
-- ✅ **Laravel** versi 8, 9, atau 10
+- ✅ **Laravel** versi 8, 9, 10 atau max laravel 11
 - ✅ **Aplikasi** berjalan normal di lokal
 - ✅ **Akun InfinityFree** aktif dengan domain/subdomain
 - ✅ **FTP Client** (FileZilla) atau akses File Manager
@@ -58,6 +58,108 @@ htdocs/
 ```
 
 ---
+## 🚨 Masalah Utama InfinityFree
+InfinityFree memiliki keterbatasan environment yang mempengaruhi deployment Laravel:
+
+- **No Composer CLI**: Tidak bisa jalankan `composer install` di server
+- **PHP Extensions**: Terbatas pada extension bawaan, tidak bisa install custom
+- **File Structure**: Path public harus disesuaikan dengan struktur hosting
+- **Bootstrap Method**: Laravel 11+ menggunakan method baru yang tidak kompatibel
+- **CLI Commands**: Artisan commands terbatas atau tidak berfungsi
+
+## 📊 Compatibility Matrix
+
+| Laravel Version | Bootstrap Method | InfinityFree Status | Action Required |
+|----------------|------------------|-------------------|----------------|
+| **Laravel 10.x** | Classic (`new Application`) | ✅ **Compatible** | Ready to deploy |
+| **Laravel 11.x** | Modern (`Application::configure`) | ⚠️ **Needs Fix** | Modify bootstrap file |
+| **Laravel 12.x** | Modern only | ❌ **Problematic** | Complex workaround |
+
+## 🔧 Laravel 11 Fix for InfinityFree
+
+### Problem
+Laravel 11 menggunakan bootstrap method baru di `bootstrap/app.php`:
+
+```php
+<?php
+
+use Illuminate\Foundation\Application;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware) {
+        //
+    })
+    ->withExceptions(function (Exceptions $exceptions) {
+        //
+    })
+    ->create();
+```
+
+### Solution
+Ganti dengan bootstrap method klasik (Laravel 10 style):
+
+```php
+<?php
+
+$app = new Illuminate\Foundation\Application(
+    $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
+);
+
+$app->singleton(
+    Illuminate\Contracts\Http\Kernel::class,
+    App\Http\Kernel::class
+);
+
+$app->singleton(
+    Illuminate\Contracts\Console\Kernel::class,
+    App\Console\Kernel::class
+);
+
+$app->singleton(
+    Illuminate\Contracts\Debug\ExceptionHandler::class,
+    App\Exceptions\Handler::class
+);
+
+return $app;
+```
+
+### Additional Files Needed (Opsi tapi di cek dulu ya)
+Pastikan file-file berikut ada (copy dari Laravel 10 project):
+
+- `app/Http/Kernel.php`
+- `app/Console/Kernel.php`
+- `app/Exceptions/Handler.php`
+
+## 🎨 Breeze & Tailwind Version Guide
+
+### Laravel 10
+- **Breeze**: v1.19.x (latest compatible)
+- **Tailwind**: 3.2.x - 3.3.x
+- **Installation**: `composer require laravel/breeze:^1.19`
+
+### Laravel 11
+- **Breeze**: v2.x
+- **Tailwind**: 3.4.x
+- **Installation**: `composer require laravel/breeze:^2.0`
+
+### Laravel 12
+- **Breeze**: v3.x
+- **Tailwind**: 4.x (beta)
+- **Installation**: `composer require laravel/breeze:^3.0`
+- 
+### Bootstrap Fix (Laravel 11 only)
+- [ ] Backup original `bootstrap/app.php`
+- [ ] Replace dengan classic bootstrap method
+- [ ] Copy required Kernel files dari Laravel 10
+- [ ] Test local setelah modifikasi
+
+**Tested With**: Laravel 10.48, 11.23 | Breeze 1.19, 2.1 | Tailwind 3.3, 3.4
 
 ## 🚀 Langkah Deploy
 
@@ -1069,6 +1171,8 @@ Jika mengalami kendala:
 4. Join komunitas Laravel Indonesia
 
 ---
+
+**Last Updated**: [Date]
 
 ## 📄 Lisensi
 

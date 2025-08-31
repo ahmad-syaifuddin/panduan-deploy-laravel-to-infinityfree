@@ -136,6 +136,18 @@ Pastikan file-file berikut ada (copy dari Laravel 10 project):
 - `app/Console/Kernel.php`
 - `app/Exceptions/Handler.php`
 
+> [!NOTE]  
+> **Laravel 11 Compatibility Reminder**  
+> 
+> Saat menggunakan gaya klasik di `bootstrap/app.php`, Laravel akan memanggil:  
+> - `app/Http/Kernel.php`  
+> - `app/Console/Kernel.php`  
+> - `app/Exceptions/Handler.php`  
+> 
+> File ini **sudah tersedia default di Laravel 11**, jadi **tidak perlu copy dari Laravel 10**.  
+> Cukup pastikan file tersebut tidak terhapus.
+
+
 ## 🎨 Breeze & Tailwind Version Guide
 
 ### Laravel 10
